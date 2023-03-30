@@ -8,31 +8,37 @@ import { dirname } from 'path';
 import { createObjectCsvWriter as createCsvWriter } from 'csv-writer';
 import csv from 'csv-parser';
 import { Configuration, OpenAIApi } from 'openai'
+import dotenv from 'dotenv'
 
-import { removeWhiteSpaceExceptInQuotes, createInitialPrompt } from './util.js'
+import { removeWhiteSpaceExceptInQuotes, createInitialPrompt, createSecondPrompt, filteredOutFunctions } from './util.js'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 
-app.use(express.json());
+dotenv.config()
 
+app.use(express.json());
 
 app.get('/v1/sailaway', async (req, res) => {
 
+	const exampleApplicationToGenerate = "Home insurance form"
+
 	// TODO: replace with req prompt
-	const tempReq = "You are a sail generator. List the functions you'll need to create a home loan form in appian sail."
+	const tempReq = `You are a sail generator. List the functions you'll need to create a ${exampleApplicationToGenerate} in appian sail.`
 
 	// TODO: replace with env variable
 	const configuration = new Configuration({
-		apiKey: "",
+		apiKey: process.env.OPENAI_KEY,
 	});
 	const openai = new OpenAIApi(configuration);
 
+	console.log("First prompt sent.");
+	//TODO: api error handling
 	const completion = await openai.createChatCompletion({
-		model: "gpt-3.5-turbo",
-		messages: [{ role: "system", content: createInitialPrompt("home loan form") }],
+		model: "gpt-4",
+		messages: [{ role: "system", content: createInitialPrompt(exampleApplicationToGenerate) }],
 	});
 
 
@@ -48,10 +54,7 @@ app.get('/v1/sailaway', async (req, res) => {
 				const paramDescriptions = row['Param Descriptions'];
 
 				// Add the extracted values to the map
-				map.set(functionName, {
-					paramNames: paramNames,
-					paramDescriptions: paramDescriptions
-				});
+				map.set(functionName, [paramNames + '. ' + paramDescriptions + '/n'])
 			})
 			.on('end', () => {
 				// Resolve the Promise with the Map object
@@ -63,17 +66,37 @@ app.get('/v1/sailaway', async (req, res) => {
 			});
 	});
 
-	const [apiData, map] = await Promise.all([completion.data, mapPromise]);
+	const [apiData, map] = await Promise.all([completion.data, mapPromise])
 
-	//TODO: api error handle
+	//TODO: api error handling
 
 	const functionList = JSON.parse(apiData.choices[0].message["content"])["functions"]
-	functionList.map(func => {
-		console.log(func)
-		console.log(map.get(func + "()"));
-	})
+	let functionContext = "";
 
-	res.send()
+	console.log("FUNCTIONLIST", functionList);
+	functionList.map(func => {
+
+		const funcName = func.endsWith("()") ? func : func + '()'
+		const context = map.get(funcName)
+		console.log("FUNCTION", func);
+		console.log("CONTEXT", context);
+		if (context != null && context != undefined) {
+			functionContext += `${func} has the parameters: + ${context}
+			`
+		}
+	})
+	// console.log(functionContext)
+
+	// TODO: token counting
+	const secondCompletionContent = createSecondPrompt(exampleApplicationToGenerate, functionContext)
+	const secondCompletion = await openai.createChatCompletion({
+		model: "gpt-4",
+		messages: [{ role: "system", content: secondCompletionContent }],
+	});
+
+	console.log(secondCompletion.data.choices[0].message.content.replace(/[\r\n]+/g, ""));
+
+	res.send(removeWhiteSpaceExceptInQuotes(secondCompletion.data.choices[0].message.content))
 });
 
 

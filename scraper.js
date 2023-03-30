@@ -2,12 +2,13 @@ import axios from 'axios'
 import cheerio from 'cheerio'
 import { createObjectCsvWriter } from 'csv-writer';
 
-import { removeNewlinesAndExtraSpaces } from './util.js'
+import { removeNewlinesAndExtraSpaces, filteredOutFunctions } from './util.js'
 
 const baseUrl = 'https://docs.appian.com/suite/help/23.1/Appian_Functions.html';
 const functionList = [];
 
 // Define a recursive function to scrape all pages in the "page_content" class
+// TODO: not collecting all functions, it's still crashing
 async function navigateLinks(url) {
 	const response = await axios.get(url);
 	const $ = cheerio.load(response.data);
@@ -29,6 +30,9 @@ async function navigateLinks(url) {
 		const linkedPageUrl = new URL(link, url).href;
 		const linkedPageResponse = await axios.get(linkedPageUrl);
 		const $ = cheerio.load(linkedPageResponse.data);
+
+		// TODO: fix this filtering out bad functions
+		// if (filteredOutFunctions.has($('#function').next('p').find('strong').text())) break;
 
 		// Find the function names
 		const functionName = $('#function').next('p').find('strong').text() + "()";
@@ -55,7 +59,7 @@ async function navigateLinks(url) {
 				paramDescriptions += keyword + ': ' + description + ' '
 
 			});
-			console.log(functionName, paramNames, paramDescriptions);
+			console.log(functionName);
 			csvWriter.writeRecords([{ functionName, paramNames, paramDescriptions }]);
 		}
 		i++
