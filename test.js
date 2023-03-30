@@ -7,7 +7,6 @@ import { createObjectCsvWriter } from 'csv-writer';
 
 async function test() {
 
-	console.log("here")
 	// Load the CSV data into a Map asynchronously using a Promise
 	const mapPromise = new Promise((resolve, reject) => {
 		const map = new Map();

@@ -30,40 +30,34 @@ async function navigateLinks(url) {
 		const linkedPageResponse = await axios.get(linkedPageUrl);
 		const $ = cheerio.load(linkedPageResponse.data);
 
-		// Find the names of all the parameters of the function
-		const paramNames = $('h2#function').next('p').find('em').text().replace(/"/g, '');
-		console.log(paramNames)
-
 		// Find the function names
 		const functionName = $('#function').next('p').find('strong').text() + "()";
-		// console.log(functionName);
+
+		// Find the names of all the parameters of the function
+		const paramNames = functionName.slice(0, -1) + $('h2#function').next('p').find('em').text().replace(/"/g, '') + ")"
+
 		if (functionName != null && functionName != undefined && functionName !== "()") {
 
 			// Find the table element with the desired class
-			const table = $('table.appianTable.tablexl');
+			const rows = $('table.appianTable.tablexl').find('tbody').find('tr');
 
-			// Find the table body element
-			const tableBody = table.find('tbody');
-
-			// Find all table row elements except for the first one
-			const rows = tableBody.find('tr:not(:first-child)');
+			const threeOrFourRows = rows.first().find('th').eq(0).text().trim()
+			const descriptionRowIndex = threeOrFourRows === "Keyword" ? 2 : 3
+			const keywordRowIndex = threeOrFourRows === "Keyword" ? 0 : 1
 
 			// Loop through each row and extract the cell content
 			let paramDescriptions = ""
-			rows.each((index, row) => {
+			rows.each((idx, row) => {
+				if (idx === 0) return;
 				const cells = $(row).find('td');
-				const keyword = removeNewlinesAndExtraSpaces($(cells[0]).find('code').text()).trim();
-				const description = removeNewlinesAndExtraSpaces($(cells[2]).text()).trim();
-				paramDescriptions += keyword + ": " + description
+				const keyword = removeNewlinesAndExtraSpaces($(cells[keywordRowIndex]).find('code').text()).trim();
+				const description = removeNewlinesAndExtraSpaces($(cells[descriptionRowIndex]).text()).trim();
+				paramDescriptions += keyword + ': ' + description + ' '
 
-				// console.log(description)
 			});
+			console.log(functionName, paramNames, paramDescriptions);
 			csvWriter.writeRecords([{ functionName, paramNames, paramDescriptions }]);
 		}
-
-
-		// if (i == 10) break;
-
 		i++
 	}
 }
