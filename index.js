@@ -96,7 +96,7 @@ app.get('/v1/sailaway', async (req, res) => {
 
 	console.log(secondCompletion.data.choices[0].message.content.replace(/[\r\n]+/g, ""));
 
-	res.send(secondCompletion.data.choices[0].message.content.replace(/[\r\n]+/g, ""))
+	res.write(secondCompletion.data.choices[0].message.content.replace(/[\r\n]+/g, ""))
 });
 
 
